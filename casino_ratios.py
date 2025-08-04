@@ -1,22 +1,21 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="📊 Análisis de Ratios - Casino Online", layout="wide")
-st.title("📊 Análisis de Ratios Financieros - Casino Online")
+st.set_page_config(page_title="Análisis Ratios Casino Online", layout="wide")
+st.title("🎰 Análisis de Ratios - Casino Online")
 
-# ===== 1. Subir archivo =====
-archivo = st.file_uploader("📥 Subí el archivo Excel con los datos", type=["xlsx"])
+st.write("Subí el archivo Excel con los datos para calcular los 12 ratios y analizarlos por plataforma.")
+
+# ===== SUBIR ARCHIVO =====
+archivo = st.file_uploader("📂 Cargar archivo Excel", type=["xlsx"])
 
 if archivo:
     df = pd.read_excel(archivo)
 
-    # Aseguramos tipos numéricos
-    cols_numericas = ["Recargas de saldo", "Retiros de saldo", "Win o GGR", "Bonus"]
-    for col in cols_numericas:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    # Normalizar nombres de columnas (por si hay espacios)
+    df.columns = df.columns.str.strip()
 
-    # ===== 2. Calcular ratios =====
+    # ===== CALCULAR RATIOS =====
     df["Recarga/retiro"] = df["Recargas de saldo"] / df["Retiros de saldo"]
     df["retiro/recarga"] = df["Retiros de saldo"] / df["Recargas de saldo"]
     df["win/recarga"] = df["Win o GGR"] / df["Recargas de saldo"]
@@ -30,61 +29,49 @@ if archivo:
     df["recargas/bonos"] = df["Recargas de saldo"] / df["Bonus"]
     df["retiros/bonos"] = df["Retiros de saldo"] / df["Bonus"]
 
-    # ===== 3. Umbrales para colorear (ajustables) =====
+    # ===== UMBRALES TENTATIVOS PARA COLOREO =====
     umbrales = {
-        "Recarga/retiro": (1.0, 1.2),
-        "retiro/recarga": (0.8, 1.0),
-        "win/recarga": (0.15, 0.25),
-        "win/retiros": (0.15, 0.25),
-        "bonos/win": (0.1, 0.3),
-        "win/bonos": (2, 6),
+        "Recarga/retiro": (1.0, 1.5),
+        "retiro/recarga": (0.6, 1.0),
+        "win/recarga": (0.15, 0.30),
+        "win/retiros": (0.15, 0.30),
+        "Dif entre recarga y retiro": (0, float("inf")),  # Positivo esperado
+        "win / dif rec y ret": (0.10, 0.50),
+        "bonos/win": (0.05, 0.25),
+        "win/bonos": (3, float("inf")),
         "bonos/retiros": (0.05, 0.25),
         "Bonos/recargas": (0.05, 0.25),
-        "recargas/bonos": (3, 15),
-        "retiros/bonos": (3, 15)
-        # "Dif entre recarga y retiro" y "win / dif rec y ret" no tienen umbrales definidos fijos
+        "recargas/bonos": (3, float("inf")),
+        "retiros/bonos": (3, float("inf")),
     }
 
-    def colorear(val, col):
+    def colorear_valor(val, col):
         try:
-            low, high = umbrales[col]
+            min_val, max_val = umbrales[col]
             if pd.isna(val):
-                return ''
-            color = 'background-color: lightgreen' if low <= val <= high else 'background-color: salmon'
-        except:
-            color = ''
-        return color
+                return "background-color: lightgray"
+            if min_val <= val <= max_val:
+                return "background-color: lightgreen"  # Dentro de rango
+            else:
+                return "background-color: lightcoral"  # Fuera de rango
+        except KeyError:
+            return ""
 
-    # ===== 4. Mostrar análisis por plataforma =====
+    # ===== MOSTRAR TABLA POR PLATAFORMA =====
     plataformas = df["Plataforma"].unique()
-
     for plataforma in plataformas:
-        st.subheader(f"📍 Plataforma: {plataforma}")
-        df_plat = df[df["Plataforma"] == plataforma].copy()
+        st.subheader(f"📊 Plataforma: {plataforma}")
+        df_plataforma = df[df["Plataforma"] == plataforma].copy()
 
-        # Mostrar tabla coloreada
-        st.dataframe(
-            df_plat.style.apply(lambda row: [colorear(row[col], col) if col in umbrales else '' for col in df_plat.columns], axis=1)
-        )
+        # Redondear ratios
+        for col in umbrales.keys():
+            df_plataforma[col] = df_plataforma[col].round(2)
 
-        # ===== 5. Gráficos =====
-        st.write("### 📈 Tendencia Win/Recarga y Bonus/Win")
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(df_plat["Mes"], df_plat["win/recarga"], marker="o", label="Win/Recarga")
-        ax.plot(df_plat["Mes"], df_plat["bonos/win"], marker="s", label="Bonus/Win")
-        ax.axhline(umbrales["win/recarga"][0], color="green", linestyle="--", alpha=0.6)
-        ax.axhline(umbrales["win/recarga"][1], color="green", linestyle="--", alpha=0.6)
-        ax.legend()
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+        # Mostrar tabla con colores
+        st.dataframe(df_plataforma.style.applymap(
+            lambda v, col=None: colorear_valor(v, col),
+            subset=list(umbrales.keys())
+        ))
 
-        # ===== 6. Alertas =====
-        alertas = []
-        for col, (low, high) in umbrales.items():
-            fuera = df_plat[(df_plat[col] < low) | (df_plat[col] > high)]
-            if not fuera.empty:
-                alertas.append(f"⚠ {col} fuera de rango en {len(fuera)} registros.")
-        if alertas:
-            st.warning("\n".join(alertas))
-        else:
-            st.success("✅ Todos los indicadores en rango para esta plataforma.")
+else:
+    st.info("Por favor, subí un archivo Excel para continuar.")
