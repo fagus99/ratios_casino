@@ -11,8 +11,6 @@ archivo = st.file_uploader("📂 Cargar archivo Excel", type=["xlsx"])
 
 if archivo:
     df = pd.read_excel(archivo)
-
-    # Normalizar nombres de columnas (por si hay espacios)
     df.columns = df.columns.str.strip()
 
     # ===== CALCULAR RATIOS =====
@@ -29,35 +27,42 @@ if archivo:
     df["recargas/bonos"] = df["Recargas de saldo"] / df["Bonus"]
     df["retiros/bonos"] = df["Retiros de saldo"] / df["Bonus"]
 
-    # ===== UMBRALES TENTATIVOS PARA COLOREO =====
+    # ===== UMBRALES =====
+    # Formato: (min_verde, max_verde, min_amarillo, max_amarillo)
     umbrales = {
-        "Recarga/retiro": (1.0, 1.5),
-        "retiro/recarga": (0.6, 1.0),
-        "win/recarga": (0.15, 0.30),
-        "win/retiros": (0.15, 0.30),
-        "Dif entre recarga y retiro": (0, float("inf")),  # Positivo esperado
-        "win / dif rec y ret": (0.10, 0.50),
-        "bonos/win": (0.05, 0.25),
-        "win/bonos": (3, float("inf")),
-        "bonos/retiros": (0.05, 0.25),
-        "Bonos/recargas": (0.05, 0.25),
-        "recargas/bonos": (3, float("inf")),
-        "retiros/bonos": (3, float("inf")),
+        "Recarga/retiro": (1.0, 1.5, 0.8, 1.7),
+        "retiro/recarga": (0.6, 1.0, 0.5, 1.1),
+        "win/recarga": (0.15, 0.30, 0.10, 0.35),
+        "win/retiros": (0.15, 0.30, 0.10, 0.35),
+        "Dif entre recarga y retiro": (0, float("inf"), -1000000, float("inf")),
+        "win / dif rec y ret": (0.10, 0.50, 0.05, 0.60),
+        "bonos/win": (0.05, 0.25, 0.03, 0.30),
+        "win/bonos": (3, float("inf"), 2, float("inf")),
+        "bonos/retiros": (0.05, 0.25, 0.03, 0.30),
+        "Bonos/recargas": (0.05, 0.25, 0.03, 0.30),
+        "recargas/bonos": (3, float("inf"), 2, float("inf")),
+        "retiros/bonos": (3, float("inf"), 2, float("inf")),
     }
 
+    # ===== FUNCIÓN PARA COLOREAR =====
     def colorear_valor(val, col):
         try:
-            min_val, max_val = umbrales[col]
+            min_v, max_v, min_a, max_a = umbrales[col]
             if pd.isna(val):
                 return "background-color: lightgray"
-            if min_val <= val <= max_val:
-                return "background-color: lightgreen"  # Dentro de rango
+            # Verde
+            if min_v <= val <= max_v:
+                return "background-color: lightgreen"
+            # Amarillo
+            elif min_a <= val <= max_a:
+                return "background-color: khaki"
+            # Rojo
             else:
-                return "background-color: lightcoral"  # Fuera de rango
+                return "background-color: lightcoral"
         except KeyError:
             return ""
 
-    # ===== MOSTRAR TABLA POR PLATAFORMA =====
+    # ===== MOSTRAR POR PLATAFORMA =====
     plataformas = df["Plataforma"].unique()
     for plataforma in plataformas:
         st.subheader(f"📊 Plataforma: {plataforma}")
@@ -72,6 +77,23 @@ if archivo:
             lambda v, col=None: colorear_valor(v, col),
             subset=list(umbrales.keys())
         ))
+
+        # ===== ALERTAS =====
+        alertas = []
+        for _, row in df_plataforma.iterrows():
+            for ratio, (min_v, max_v, min_a, max_a) in umbrales.items():
+                valor = row[ratio]
+                if pd.isna(valor):
+                    continue
+                if valor < min_a or valor > max_a:
+                    alertas.append(f"🚨 [{row['Mes']}] {ratio} fuera de rango crítico: {valor}")
+                elif valor < min_v or valor > max_v:
+                    alertas.append(f"⚠️ [{row['Mes']}] {ratio} en rango de advertencia: {valor}")
+
+        if alertas:
+            st.error("**Alertas detectadas:**\n" + "\n".join(alertas))
+        else:
+            st.success("✅ No se detectaron problemas graves en los ratios.")
 
 else:
     st.info("Por favor, subí un archivo Excel para continuar.")
