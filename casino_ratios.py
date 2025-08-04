@@ -18,25 +18,38 @@ if archivo:
 
     # ===== 2. Calcular ratios =====
     df["Recarga/retiro"] = df["Recargas de saldo"] / df["Retiros de saldo"]
-    df["Retiro/recarga"] = df["Retiros de saldo"] / df["Recargas de saldo"]
-    df["Win/recarga"] = df["Win o GGR"] / df["Recargas de saldo"]
-    df["Win/retiros"] = df["Win o GGR"] / df["Retiros de saldo"]
-    df["Win/bonus"] = df["Win o GGR"] / df["Bonus"]
-    df["Bonus/win"] = df["Bonus"] / df["Win o GGR"]
+    df["retiro/recarga"] = df["Retiros de saldo"] / df["Recargas de saldo"]
+    df["win/recarga"] = df["Win o GGR"] / df["Recargas de saldo"]
+    df["win/retiros"] = df["Win o GGR"] / df["Retiros de saldo"]
+    df["Dif entre recarga y retiro"] = df["Recargas de saldo"] - df["Retiros de saldo"]
+    df["win / dif rec y ret"] = df["Win o GGR"] / df["Dif entre recarga y retiro"]
+    df["bonos/win"] = df["Bonus"] / df["Win o GGR"]
+    df["win/bonos"] = df["Win o GGR"] / df["Bonus"]
+    df["bonos/retiros"] = df["Bonus"] / df["Retiros de saldo"]
+    df["Bonos/recargas"] = df["Bonus"] / df["Recargas de saldo"]
+    df["recargas/bonos"] = df["Recargas de saldo"] / df["Bonus"]
+    df["retiros/bonos"] = df["Retiros de saldo"] / df["Bonus"]
 
-    # ===== 3. Umbrales para colorear =====
+    # ===== 3. Umbrales para colorear (ajustables) =====
     umbrales = {
-        "Recarga/retiro": (1.0, 1.2),   # Ej: ideal entre 1.0 y 1.2
-        "Retiro/recarga": (0.8, 1.0),   # Ej: ideal entre 0.8 y 1.0
-        "Win/recarga": (0.15, 0.25),    # 15% a 25% del jugado
-        "Win/retiros": (0.15, 0.25),
-        "Win/bonus": (2, 6),
-        "Bonus/win": (0.1, 0.3)
+        "Recarga/retiro": (1.0, 1.2),
+        "retiro/recarga": (0.8, 1.0),
+        "win/recarga": (0.15, 0.25),
+        "win/retiros": (0.15, 0.25),
+        "bonos/win": (0.1, 0.3),
+        "win/bonos": (2, 6),
+        "bonos/retiros": (0.05, 0.25),
+        "Bonos/recargas": (0.05, 0.25),
+        "recargas/bonos": (3, 15),
+        "retiros/bonos": (3, 15)
+        # "Dif entre recarga y retiro" y "win / dif rec y ret" no tienen umbrales definidos fijos
     }
 
     def colorear(val, col):
         try:
             low, high = umbrales[col]
+            if pd.isna(val):
+                return ''
             color = 'background-color: lightgreen' if low <= val <= high else 'background-color: salmon'
         except:
             color = ''
@@ -57,10 +70,10 @@ if archivo:
         # ===== 5. Gráficos =====
         st.write("### 📈 Tendencia Win/Recarga y Bonus/Win")
         fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(df_plat["Mes"], df_plat["Win/recarga"], marker="o", label="Win/Recarga")
-        ax.plot(df_plat["Mes"], df_plat["Bonus/win"], marker="s", label="Bonus/Win")
-        ax.axhline(umbrales["Win/recarga"][0], color="green", linestyle="--", alpha=0.6)
-        ax.axhline(umbrales["Win/recarga"][1], color="green", linestyle="--", alpha=0.6)
+        ax.plot(df_plat["Mes"], df_plat["win/recarga"], marker="o", label="Win/Recarga")
+        ax.plot(df_plat["Mes"], df_plat["bonos/win"], marker="s", label="Bonus/Win")
+        ax.axhline(umbrales["win/recarga"][0], color="green", linestyle="--", alpha=0.6)
+        ax.axhline(umbrales["win/recarga"][1], color="green", linestyle="--", alpha=0.6)
         ax.legend()
         plt.xticks(rotation=45)
         st.pyplot(fig)
@@ -75,4 +88,3 @@ if archivo:
             st.warning("\n".join(alertas))
         else:
             st.success("✅ Todos los indicadores en rango para esta plataforma.")
-
