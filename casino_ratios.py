@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Análisis Ratios Casino Online", layout="wide")
+st.set_page_config(page_title="Ratios Casino Online", layout="wide")
 st.title("🎰 Análisis de Ratios - Casino Online")
 
-st.write("Subí el archivo Excel con los datos para calcular los 12 ratios y analizarlos por plataforma.")
+st.write("Subí el archivo Excel con los datos para calcular y visualizar los 12 ratios con formato de colores.")
 
 # ===== SUBIR ARCHIVO =====
 archivo = st.file_uploader("📂 Cargar archivo Excel", type=["xlsx"])
@@ -28,7 +28,6 @@ if archivo:
     df["retiros/bonos"] = df["Retiros de saldo"] / df["Bonus"]
 
     # ===== UMBRALES =====
-    # Formato: (min_verde, max_verde, min_amarillo, max_amarillo)
     umbrales = {
         "Recarga/retiro": (1.0, 1.5, 0.8, 1.7),
         "retiro/recarga": (0.6, 1.0, 0.5, 1.1),
@@ -50,15 +49,12 @@ if archivo:
             min_v, max_v, min_a, max_a = umbrales[col]
             if pd.isna(val):
                 return "background-color: lightgray"
-            # Verde
             if min_v <= val <= max_v:
-                return "background-color: lightgreen"
-            # Amarillo
+                return "background-color: lightgreen"  # Verde
             elif min_a <= val <= max_a:
-                return "background-color: khaki"
-            # Rojo
+                return "background-color: khaki"  # Amarillo
             else:
-                return "background-color: lightcoral"
+                return "background-color: lightcoral"  # Rojo
         except KeyError:
             return ""
 
@@ -72,28 +68,13 @@ if archivo:
         for col in umbrales.keys():
             df_plataforma[col] = df_plataforma[col].round(2)
 
-        # Mostrar tabla con colores
-        st.dataframe(df_plataforma.style.applymap(
-            lambda v, col=None: colorear_valor(v, col),
-            subset=list(umbrales.keys())
-        ))
-
-        # ===== ALERTAS =====
-        alertas = []
-        for _, row in df_plataforma.iterrows():
-            for ratio, (min_v, max_v, min_a, max_a) in umbrales.items():
-                valor = row[ratio]
-                if pd.isna(valor):
-                    continue
-                if valor < min_a or valor > max_a:
-                    alertas.append(f"🚨 [{row['Mes']}] {ratio} fuera de rango crítico: {valor}")
-                elif valor < min_v or valor > max_v:
-                    alertas.append(f"⚠️ [{row['Mes']}] {ratio} en rango de advertencia: {valor}")
-
-        if alertas:
-            st.error("**Alertas detectadas:**\n" + "\n".join(alertas))
-        else:
-            st.success("✅ No se detectaron problemas graves en los ratios.")
+        # Aplicar colores a toda la tabla de ratios
+        st.dataframe(
+            df_plataforma.style.apply(
+                lambda row: [colorear_valor(v, c) for c, v in zip(df_plataforma.columns, row)],
+                axis=1
+            )
+        )
 
 else:
-    st.info("Por favor, subí un archivo Excel para continuar.")
+    st.info("📥 Subí un archivo Excel para continuar.")
